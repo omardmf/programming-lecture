@@ -19,3 +19,31 @@ This project explores the training, evaluation, export, and deployment of a simp
 - **Output Layer**: Dense layer with 10 softmax/logits units
 
 ---
+
+## 🚀 Quick Start
+
+### On PC
+
+```bash
+
+
+# Clone the repository
+git clone https://github.com/yourusername/your-repository.git
+cd your-repository
+
+# Create environment and install requirements (example: TensorFlow)
+python -m venv env
+source env/bin/activate  # or env\Scripts\activate on Windows
+pip install -r requirements_tf.txt
+python tensorflow/train_tf.py
+
+### On Raspberry Pi
+
+```bash
+
+# SSH into your Pi and activate environment
+source ~/env1/bin/activate
+
+# Run inference using TFLite or ONNX
+python3 run_tflite_pi.py
+python3 run_onnx_pi.py
