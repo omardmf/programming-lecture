@@ -1,0 +1,251 @@
+\documentclass[a4paper,12pt]{article}
+
+% Packages
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{geometry}
+\usepackage{hyperref}
+\geometry{margin=2.5cm}
+\setlength{\parindent}{0pt}
+
+% Code style
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue},
+    stringstyle=\color{red},
+    commentstyle=\color{gray},
+    breaklines=true,
+    frame=single
+}
+
+\title{Lab 04: Deploying Models on Edge Devices}
+\author{Omar Diaa Eldin \\ M.Eng. Artificial Intelligence for Smart Sensors \& Actuators \\ Prof. Tobias Schaffer}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+This lab focused on implementing, training, evaluating, and exporting a simple neural network using both TensorFlow and PyTorch. The main goal was to understand their differences in workflow, performance, and model exportability, and how to deploy trained models (TFLite and ONNX) on a Raspberry Pi and run inference using dummy data.
+
+\section{Model Architecture and Dataset}
+\begin{itemize}
+    \item Dataset: MNIST handwritten digits (28x28 grayscale)
+    \item Layers:
+    \begin{itemize}
+        \item Flatten layer
+        \item Dense layer with 64 ReLU units
+        \item Output layer with 10 classes
+    \end{itemize}
+\end{itemize}
+
+\section{Implementation}
+
+\subsection{Development Environment for Models}
+\begin{itemize}
+    \item \textbf{CPU:} Intel(R) Core(TM) i7-7700HQ @ 2.80GHz (4 cores, 8 threads)
+    \item \textbf{GPU:} NVIDIA GeForce GTX 1070, 8 GB VRAM
+    \item \textbf{RAM:} 16 GB DDR4
+    \item \textbf{OS:} Windows 10 64-bit
+    \item \textbf{Programming Language:} Python
+    \item \textbf{Python Version:} Python 3.10
+    \item \textbf{IDE:} PyCharm
+\end{itemize}
+
+\subsection*{Development Environment for Models on Edge Device}
+\begin{itemize}
+    \item \textbf{Device:} Raspberry Pi 5
+    \item \textbf{RAM:} 8 GB LPDDR4
+    \item \textbf{OS:} Raspberry Pi OS 64-bit
+    \item \textbf{Python Version:} Python 3.10
+\end{itemize}
+
+\subsection{Code Repository}
+
+The full source code for this project is available on GitHub at:  
+\url{https://github.com/omardmf/programming-lecture}
+
+\subsection{TensorFlow}
+\begin{lstlisting}
+import tensorflow as tf
+import time
+
+model = tf.keras.Sequential([
+    tf.keras.layers.Flatten(input_shape=(28, 28)),
+    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(10, activation='softmax')
+])
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+model.fit(x_train, y_train, epochs=5)
+\end{lstlisting}
+
+\subsection{PyTorch}
+\begin{lstlisting}
+import torch
+import torch.nn as nn
+
+class MNISTModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(784, 64)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(64, 10)
+
+    def forward(self, x):
+        x = x.view(-1, 784)
+        return self.fc2(self.relu(self.fc1(x)))
+\end{lstlisting}
+\newpage
+
+\section{Metrics}
+\subsection{TensorFlow}
+\begin{lstlisting}
+print("Training started...")
+start_time = time.time()
+model.fit(x_train, y_train, epochs=5, batch_size=64, verbose=2)
+training_time = time.time() - start_time
+
+test_loss, test_acc = model.evaluate(x_test, y_test, verbose=2)
+\end{lstlisting}
+
+\subsection{PyTorch}
+\begin{lstlisting}
+model.eval()
+correct = 0
+total = 0
+
+start_infer = time.time()
+with torch.no_grad():
+    for images, labels in test_loader:
+        images, labels = images.to(device), labels.to(device)
+        outputs = model(images)
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+inference_time = time.time() - start_infer
+
+accuracy = correct / total
+\end{lstlisting}
+
+\section{Results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Framework} & \textbf{Accuracy (\%)} & \textbf{Inference Time (ms)} \\
+\hline
+TensorFlow         & 96.74                  & 1.746                        \\
+PyTorch            & 95.67                  & 2726.5                       \\
+\hline
+\end{tabular}
+\caption{Performance Comparison of Models}
+\end{table}
+
+\section{Model Export}
+\begin{itemize}
+    \item TensorFlow Lite:
+    \begin{lstlisting}
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+tflite_model = converter.convert()
+    \end{lstlisting}
+    \item PyTorch to ONNX:
+    \begin{lstlisting}
+dummy_input = torch.randn(1, 784)
+torch.onnx.export(model, dummy_input, "model.onnx")
+    \end{lstlisting}
+\end{itemize}
+
+\section{Deployment Steps on Raspberry Pi}
+\begin{enumerate}
+    \item Prepare Raspberry Pi with a virtual environment:
+    \begin{lstlisting}
+sudo apt update
+sudo apt install python3-full python3-venv
+python3 -m venv ~/env1
+source ~/env1/bin/activate
+pip install numpy tensorflow onnxruntime
+    \end{lstlisting}
+    \item Transfer models via SCP:
+    \begin{lstlisting}
+scp model.tflite pi@raspberrypi:~/
+scp model.onnx pi@raspberrypi:~/
+    \end{lstlisting}
+    \item Run TensorFlow Lite inference:
+    \begin{lstlisting}
+interpreter = tf.lite.Interpreter(model_path="model.tflite")
+interpreter.allocate_tensors()
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+interpreter.set_tensor(input_details[0]['index'], test_image)
+interpreter.invoke()
+output = interpreter.get_tensor(output_details[0]['index'])
+    \end{lstlisting}
+    \item Run ONNX inference:
+    \begin{lstlisting}
+import onnxruntime as ort
+session = ort.InferenceSession("model.onnx")
+outputs = session.run(None, {"input": test_image})
+    \end{lstlisting}
+\end{enumerate}
+
+\section{Results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Framework} & \textbf{Inference Time (ms)} & \textbf{Predicted Class} \\
+\hline
+TFLite         & 1.746                  & 3                        \\
+ONNX            & 2.995                  & 4                       \\
+\hline
+\end{tabular}
+\caption{Performance Comparison of Models on Edge Device}
+\end{table}
+
+\section{Challenges, Limitations, and Error Analysis}
+
+\subsection{Error Analysis}
+\begin{itemize}
+    \item Model mismatch errors during ONNX export due to incorrect input shape definitions.
+    \item Slow inference or segmentation faults on the Raspberry Pi when attempting to run unoptimized models or incompatible TensorFlow versions.
+\end{itemize}
+
+\subsection{Limitations of the Implementation}
+\begin{itemize}
+    \item The ONNX model predicted a different class than the TensorFlow Lite model for the same dummy input, indicating possible numerical differences in backend operations.
+    \item Limited quantization and compression were applied; more optimized versions of the models would yield better performance on edge devices.
+\end{itemize}
+
+\section{Discussion}
+The lab successfully demonstrated end-to-end deployment of deep learning models on edge devices. Training and inference were faster on TensorFlow, particularly due to its built-in support for TFLite conversion. PyTorch offered more flexibility during model construction, but ONNX conversion required more effort and had higher inference time.
+
+Interestingly, the predicted classes for a sample image differed slightly: TensorFlow Lite predicted class \texttt{3}, while ONNX predicted class \texttt{4}. This highlights that different runtimes may produce minor numerical variations, especially with uncalibrated floating point weights.
+
+In terms of deployment:
+\begin{itemize}
+    \item TFLite was easier to integrate with the Pi and showed faster performance.
+    \item ONNX required more setup but demonstrated good compatibility once configured.
+\end{itemize}
+
+\section{Conclusion}
+This lab compared TensorFlow and PyTorch in terms of model development, evaluation, and deployment to edge hardware. TensorFlow provided a smoother experience from training to deployment via TFLite. PyTorch required additional steps but benefited from clearer modularity.
+
+\section{References}
+\begin{itemize}
+    \item TensorFlow documentation: \url{https://www.tensorflow.org/}
+    \item PyTorch documentation: \url{https://pytorch.org/}
+    \item ONNX Runtime: \url{https://onnxruntime.ai/}
+    \item MNIST Dataset: \url{http://yann.lecun.com/exdb/mnist/}
+\end{itemize}
+
+
+\end{document}
