@@ -47,3 +47,17 @@ source ~/env1/bin/activate
 # Run inference using TFLite or ONNX
 python3 run_tflite_pi.py
 python3 run_onnx_pi.py
+
+
+📘 References
+TensorFlow Lite Documentation
+
+PyTorch Documentation
+
+ONNX Runtime Docs
+
+Raspberry Pi Official Site
+
+📄 License
+This project is released under the MIT License.
+
